@@ -1,0 +1,47 @@
+Winscr.png
+size:1865,1918
+filter:Linear,Linear
+pma:true
+Cup
+bounds:1128,1144,626,517
+offsets:2,5,628,528
+Layer 3
+bounds:1302,354,266,313
+offsets:1,1,268,315
+rotate:90
+Layer 4
+bounds:1302,63,254,289
+offsets:1,1,256,291
+Layer 5
+bounds:1302,622,375,303
+offsets:1,1,378,305
+Layer 50
+bounds:1713,759,383,141
+offsets:1,1,385,143
+rotate:90
+Shadow
+bounds:2,11,269,25
+offsets:14,0,302,36
+banner1
+bounds:1128,1663,727,253
+offsets:2,1,730,255
+banner2
+bounds:1017,2,923,283
+offsets:1,1,925,285
+rotate:90
+flash02
+bounds:1558,76,276,276
+light02
+bounds:1617,363,257,246
+offsets:8,7,273,260
+rotate:90
+light1
+bounds:2,1128,788,1124
+offsets:156,150,945,1352
+rotate:90
+light2
+bounds:2,38,1013,1088
+offsets:1,165,1191,1254
+text
+bounds:1128,927,583,215
+offsets:1,2,585,218
