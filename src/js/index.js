@@ -18,8 +18,8 @@ class Main {
         this.loadAssets.loader()
         var resourcesComplete = setInterval(() => {
             const progress = this.loadAssets.getProgress()
-            console.log(progress);
             if (progress == 100) {
+                console.log('load data complete');
                 this.startGame()
                 clearInterval(resourcesComplete);
             }
@@ -30,6 +30,7 @@ class Main {
         var resources = this.loadAssets.getResources()
         var screenSize = this.manager.getBounds()
         this.gameController = new GameController(app, resources, screenSize)
+        this.gameController.start()
 
     }
     resize(width, height) {

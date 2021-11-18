@@ -13,7 +13,6 @@ var Singleton = (function () {
     return {
         getInstance: async function () {
             if (!resources) {
-                console.log(1111111);
                 await myPromise.then((val) => { resources = val })
             }
             return resources;

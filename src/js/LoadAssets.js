@@ -9,8 +9,8 @@ export default class LoadAssets {
             .reset()
             .add(ASSETS)
             .load();
-        this.load.onProgress.add(this.downloadProgress, this);
-        this.load.onComplete.once(this.gameLoaded, this);
+        // this.load.onProgress.add(this.downloadProgress, this);
+        // this.load.onComplete.once(this.gameLoaded, this);
     }
     downloadProgress(loader) {
         const progressRatio = loader.progress / 100;
