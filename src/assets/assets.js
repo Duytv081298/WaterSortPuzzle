@@ -10,5 +10,7 @@ export const ASSETS = [
     { name: 'winscr', url: 'assets/spine/Winscr.json' },
     { name: 'Highscore', url: 'assets/spine/Highscore.json' },
     { name: 'confetti', url: 'assets/spine/confetti.json' },
+
+    { name: 'map', url: 'assets/levels/Lv_1.json' },
     
 ]

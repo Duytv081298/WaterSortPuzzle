@@ -1,36 +1,39 @@
 import { Application, Sprite, Container } from 'pixi.js'
 var datalevel = { "ids": [2, 3, 4, 4, 4, 3, 4, 3, 2, 2, 3, 2, 0, 0, 0, 0, 0, 0, 0, 0] }
 var map = [[2, 3, 4, 4]]
+
+import { gsap } from "gsap";
 export default class GameController {
     constructor(app, resources, screenSize) {
         this.app = app;
         this.resources = resources;
         this.screenSize = screenSize;
         this.containerGame = new Container();
+        this.map = null
         this.setUpDefaut()
 
     }
     setUpDefaut() {
         this.containerGame.name = 'container Game'
         this.containerGame.zIndex = 0
-        this.containerBottles = new Container();
+        this.containerPlaying = new Container();
 
-        this.containerBottles.name = 'container Bottles'
-        this.containerBottles.zIndex = 1
-        this.app.stage.addChild(this.containerGame, this.containerBottles);
+        this.containerPlaying.name = 'container Bottles'
+        this.containerPlaying.zIndex = 1
+        this.app.stage.addChild(this.containerGame, this.containerPlaying);
 
 
         this.listBottles = []
         this.bottleBase = null;
-        console.log(map);
+        this.map = converLevel(this.resources.map.data.ids)
+        console.log(this.map);
+
 
     }
     start() {
         console.log('start true');
-
         this.setBackground()
         this.setBottle()
-        this.pourWater()
 
     }
 
@@ -62,34 +65,123 @@ export default class GameController {
         bottle.scale.set(scale_bottle, scale_bottle);
         bottle.position.set((WIDTH - bottle.getBounds().width) * 0.5, HEIGHT * 0.3);
         bottle.interactive = true;
-        this.setAnchor(bottle, 1)
-        bottle.on('pointerdown', () => { this.clickBottle() })
-        this.listBottles.push(bottle)
         this.bottleBase = { width: bottle.getBounds().width, height: bottle.getBounds().height, scale: scale_bottle }
-        this.containerBottles.addChild(bottle)
+        this.colorBase = { height: this.bottleBase.height * 0.85 / 4, width: this.bottleBase.height * 1.3 }
+
+
+        for (let i = 0; i < map.length; i++) {
+            var containerBottle = new Container();
+            containerBottle.name = 'container_bottle_' + i
+
+            var containerBottleMask = new Container();
+            containerBottleMask.name = 'container_bottle_mask_' + i
+
+            var containerColor = new Container();
+            containerColor.name = 'container_color_' + i
+
+            this.containerPlaying.addChild(containerBottle)
+
+            const bottle = new PIXI.Sprite(this.resources.bottles.textures["bottle_1.png"]);
+            bottle.name = 'bottle_' + i
+            bottle.scale.set(scale_bottle, scale_bottle);
+            bottle.position.set(0, 0);
+            bottle.interactive = true;
+
+
+            const bottle_fill = new PIXI.Sprite(this.resources.bottles.textures["bottle_fill_1.png"]);
+            bottle_fill.name = 'bottle_fill_' + i
+            bottle_fill.scale.set(scale_bottle, scale_bottle);
+            bottle_fill.position.set((this.bottleBase.width - bottle_fill.getBounds().width) * 0.5, bottle.y + this.bottleBase.height * 0.02);
+
+            bottle.on('pointerdown', () => { this.clickBottle() })
+            this.listBottles.push(bottle)
+            containerBottleMask.addChild(bottle_fill, bottle)
+            this.setOriginRight(containerBottleMask)
+            // this.setAnchor(bottle, 1)
+            var waterX = bottle.anchor.x == 0 ? bottle.x + this.bottleBase.width : bottle.x
+
+
+            for (let j = 0; j < map[0].length; j++) {
+                const color = map[0][j];
+                if (color <= 0) continue;
+                var water = this.getWater(color)
+                // this.setAnchor(water, 1)
+                water.y = bottle.y + this.bottleBase.height * 0.15 + this.colorBase.height * j
+                water.x = waterX
+                containerColor.addChild(water)
+            }
+
+            var wave = this.getWave()
+            wave.y = containerColor.children[0].y - wave.getBounds().height * 0.8
+            containerBottle.addChild(containerColor, wave, containerBottleMask)
+            wave.mask = bottle_fill
+            containerColor.mask = bottle_fill
+            containerBottle.x = (WIDTH - containerBottle.getBounds().width) * 0.5
+            containerBottle.y = HEIGHT * 0.3
+
+            // var moveX  = gsap.timeline(); gsap
+            // moveX.to(wave, { x: '-=90', duration: 1, ease: "none" }).call(() => {
+            //     moveX.invalidate();
+            //     moveX.restart();
+            // })
+
+        }
+        // containerBottleMask.rotation = degrees_to_radians(36)
+        // gsap.to(containerBottleMask, { rotation: degrees_to_radians(36), duration: 1, ease: "none" })
+
     }
+
+    getWave() {
+        var containerWave = new Container();
+        const water_wave = new PIXI.Sprite(this.resources.bottles.textures["wave.png"]);
+        var scale_wave = this.bottleBase.width / water_wave.getBounds().width
+        for (let i = 0; i < 5; i++) {
+            const water_wave = new PIXI.Sprite(this.resources.bottles.textures["wave.png"]);
+            water_wave.scale.set(scale_wave, scale_wave);
+            water_wave.position.set(water_wave.getBounds().width * i, 0);
+            containerWave.addChild(water_wave)
+            water_wave.tint = 0x3f4482
+        }
+        return containerWave
+    }
+
+
+
+
+
+
+
+
+
+
+
+
+    setOriginLeft() {
+
+    }
+
+    setOriginRight(target) {
+
+        target.pivot.x = this.bottleBase.width
+        target.x = this.bottleBase.width
+    }
+
     pourWater() {
+        var containerColor = new Container();
+        this.containerPlaying.addChild(containerColor)
         for (let i = 0; i < this.listBottles.length; i++) {
             const bottle = this.listBottles[i];
 
-            var water = this.getWater(3)
-console.log(water.anchor);
-            // this.setAnchor(water, 1)
-            water.y = bottle.y + this.bottleBase.height * 0.15
-            water.x = bottle.x
-            this.containerBottles.addChild(water)
 
         }
     }
     getWater(param) {
         var color = getColor(param)
-        console.log(color);
         let water = new PIXI.Graphics();
         water.beginFill(color);
         water.pivot.x = this.bottleBase.height * 1.3;
-        water.drawRect(0, 0, this.bottleBase.height * 1.3, this.bottleBase.height);
+        water.drawRect(0, 0, this.colorBase.width, this.colorBase.height);
         return water
-
     }
     setAnchor(sprite, point) {
         if (point != sprite.anchor.x) {
@@ -130,13 +222,18 @@ function getColor(param) {
     }
 }
 function converLevel(maplevel) {
-    var quantityBottle = maplevel.length / 4
+    var map = maplevel.slice()
+    var quantityBottle = map.length / 4
     var listColor = []
-    while (maplevel.length) {
-        listColor.push(maplevel.splice(0, 4));
+    while (map.length) {
+        listColor.push(map.splice(0, 4));
     }
     return {
         "bottle": quantityBottle,
         "map": listColor
     }
+}
+function degrees_to_radians(degrees) {
+    var pi = Math.PI;
+    return degrees * (pi / 180);
 }
