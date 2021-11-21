@@ -9,9 +9,11 @@ import GameController from "./GameController"
 
 class Main {
     constructor() {
+        this.level = 5
         this.manager = new Manager(this)
-        this.loadAssets = new LoadAssets()
+        this.loadAssets = new LoadAssets(this.level)
         this.gameController = null;
+        
     }
     init() {
         this.manager.initialize()
@@ -29,7 +31,7 @@ class Main {
         var app = this.manager.getApp()
         var resources = this.loadAssets.getResources()
         var screenSize = this.manager.getBounds()
-        this.gameController = new GameController(app, resources, screenSize)
+        this.gameController = new GameController(app, resources, screenSize, this.level)
         this.gameController.start()
 
     }
