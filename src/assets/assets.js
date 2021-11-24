@@ -9,6 +9,10 @@ export const ASSETS = [
 
     { name: 'winscr', url: 'assets/spine/Winscr.json' },
     { name: 'Highscore', url: 'assets/spine/Highscore.json' },
-    { name: 'confetti', url: 'assets/spine/confetti.json' }
+    { name: 'confetti', url: 'assets/spine/confetti.json' },
+
+    // sound 
+    
+    { name: 'pourWater', url: 'assets/audio/pourWater.wav' }
     
 ]

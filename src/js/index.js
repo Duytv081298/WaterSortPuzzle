@@ -9,7 +9,7 @@ import GameController from "./GameController"
 
 class Main {
     constructor() {
-        this.level = 5
+        this.level = 6
         this.manager = new Manager(this)
         this.loadAssets = new LoadAssets(this.level)
         this.gameController = null;
