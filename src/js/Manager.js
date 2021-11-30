@@ -8,9 +8,9 @@ export default class Manager {
         this.height = Math.max(document.documentElement.clientHeight, window.innerHeight || 0);
     }
     getBounds() {
-        return {width: this.width, height: this.height};
+        return { width: this.width, height: this.height };
     }
-    getApp(){
+    getApp() {
         return this.app
     }
     initialize() {
@@ -25,8 +25,9 @@ export default class Manager {
         this.app.renderer.resize(this.width, this.height)
         this.app.renderer.view.style.position = 'absolute'
 
+        this.app.stage.sortableChildren = true
         document.body.appendChild(this.app.view)
-        window.addEventListener("resize", ()=>{this.resize()});
+        window.addEventListener("resize", () => { this.resize() });
     }
     resize() {
         this.width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);
