@@ -35,7 +35,11 @@ export const ASSETS = [
     { name: 'show_Victory', url: 'assets/audio/Show_Victory.wav' },
     { name: 'sound_firework', url: 'assets/audio/sound_firework.mp3' },
     { name: 'containerFinish', url: 'assets/audio/ContainerFinish.wav' },
-    { name: 'button_Click', url: 'assets/audio/Button_Click.wav' }
+    { name: 'button_Click', url: 'assets/audio/Button_Click.wav' },
+
+    //font
+    
+   { name: 'GROBOLD', url: 'assets/fonts/GROBOLD.ttf' }
 
     
 ]

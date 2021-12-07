@@ -2,6 +2,9 @@ import { Application, Sprite, Container } from 'pixi.js'
 import { sound } from '@pixi/sound';
 import { gsap } from "gsap";
 import { Spine } from 'pixi-spine';
+import { Scrollbox } from 'pixi-scrollbox'
+
+import Ads from './facebook_ads'
 const TIMEUP = 0.15;
 const TIMEMOVEMIN = 0.35
 
@@ -11,19 +14,22 @@ var loaderBackData = new PIXI.Loader();
 
 var numBottleAdd = 0
 export default class GameController {
-    constructor(app, resources, screenSize, level) {
+    constructor(app, resources, screenSize, level, adSupport) {
         this.app = app;
         this.resources = resources;
         this.screenSize = screenSize;
         this.level = level;
+        this.adSupport = adSupport;
         this.data = null;
         this.bottleW = null;
-        this.template_bottle_use = "bottle_1.png";
+        this.idBottle = 1;
+        this.template_bottle_use = "bottle_" + this.idBottle + ".png";
+        this.template_bottle_fill = "bottle_fill_" + this.idBottle + ".png"
         this.setUpDefaut();
         this.listBottles = [];
         this.listBottleA = [];
         this.listBottleB = [];
-        this.speed = { a: 0, b: 0 }
+        this.speed = 0
 
         this.complete = true;
         this.dataLevelNextLoad = false;
@@ -31,6 +37,9 @@ export default class GameController {
         this.sound = true;
         this.vibration = false;
         this.back = 5
+        this.plus = true
+
+        this.listcheckl2 = [];
 
     }
     setUpDefaut() {
@@ -64,6 +73,11 @@ export default class GameController {
         this.containerSettings.name = 'container Settings'
         this.containerSettings.zIndex = 3
 
+        this.select_bottle_container = new Container();
+        this.select_bottle_container.name = 'select bottle container'
+        this.select_bottle_container.zIndex = 3
+
+
 
         this.containerWin = new Container();
         this.containerWin.zIndex = 4
@@ -76,7 +90,7 @@ export default class GameController {
 
 
         this.app.stage.addChild(this.containerGame, this.containerButton, this.containerLevel,
-            this.containerPlaying, this.diaphragm, this.containerSettings, this.containerWin);
+            this.containerPlaying, this.diaphragm, this.containerSettings, this.select_bottle_container, this.containerWin);
 
 
         this.listBottles = []
@@ -88,11 +102,11 @@ export default class GameController {
         console.log('start true');
         this.setBackground()
         this.setButton()
-        this.setLCBottle(this.data.bottle)
-        this.setBottle()
+
+        this.defaultInit()
         this.getNextLevelData()
-        this.drawTextLevel()
-        // this.drawWin()
+        if (this.adSupport) this.ads_facebook = new Ads(this)
+
     }
     setBackground() {
         const bg = PIXI.Sprite.from(this.resources.bg.texture);
@@ -242,19 +256,23 @@ export default class GameController {
             this.containerPlaying.addChild(containerBottle)
 
 
-            const bottle = new PIXI.Sprite(this.resources.bottles.textures["bottle_1.png"]);
+            const bottle = new PIXI.Sprite(this.resources.bottles.textures[this.template_bottle_use]);
             bottle.name = 'bottle_' + i
             bottle.scale.set(this.bottleBase.scale, this.bottleBase.scale);
             bottle.position.set(0, 0);
             bottle.interactive = true;
 
 
-            const bottle_fill = new PIXI.Sprite(this.resources.bottles.textures["bottle_fill_1.png"]);
+            const bottle_fill = new PIXI.Sprite(this.resources.bottles.textures[this.template_bottle_fill]);
             bottle_fill.name = 'bottle_fill_' + i
             bottle_fill.scale.set(this.bottleBase.scale, this.bottleBase.scale);
-            bottle_fill.position.set((this.bottleBase.width - bottle_fill.getBounds().width) * 0.5, this.bottleBase.height * 0.02);
+            bottle_fill.position.set((this.bottleBase.width - bottle_fill.getBounds().width) * 0.5, this.idBottle == 1 ? this.bottleBase.height * 0.02 : 0);
 
-            bottle.on('pointerdown', () => { this.clickBottle(i) })
+            bottle.on('pointerdown', () => {
+                if (this.level == 1) this.eventLevel_1(i)
+                else if (this.level == 2) this.eventLevel_2(i)
+                else this.clickBottle(i)
+            })
 
             containerBottleMask.addChild(bottle_fill, bottle)
 
@@ -282,7 +300,7 @@ export default class GameController {
                 }
             }
             containerColor.y = this.bottleBase.empty
-            containerColor.x = bottle.x
+            containerColor.x = bottle.x + this.bottleBase.width * 0.11
             this.listBottles.push({ status: true, runWave4: false, runWave: false, num: 0, new: [] });
 
             var colWater = this.getColWater(3)
@@ -298,7 +316,7 @@ export default class GameController {
             var wave4 = this.getWave4(map[i][map[i].lastIndexOf(0) + 1])
             wave4.name = 'wave4_' + i
             var indexWaterExist = map[i].lastIndexOf(0) + 1
-            wave4.y = indexWaterExist < 3 ? containerColor.children[indexWaterExist].y - wave4.getBounds().height * 0.7 + this.bottleBase.empty : containerColor.children[3].y + containerColor.children[3].getBounds().height - wave4.getBounds().height * 0.7 + this.bottleBase.empty
+            wave4.y = indexWaterExist < 3 ? containerColor.children[indexWaterExist].y - wave4.getBounds().height * 0.6 + this.bottleBase.empty : containerColor.children[3].y + containerColor.children[3].getBounds().height - wave4.getBounds().height * 0.6 + this.bottleBase.empty
 
             wave4.alpha = 0
 
@@ -310,13 +328,15 @@ export default class GameController {
             containerBottle.x = this.bottleBase.startX[i]
             containerBottle.y = i >= this.bottleBase.indexRow.numR1 ? this.bottleBase.startY[1] : this.bottleBase.startY[0]
         }
+        var x0 = this.bottleBase.startX[0],
+            y0 = this.bottleBase.startY[0],
+            x1 = this.bottleBase.startX[1],
+            y1 = this.bottleBase.startY[0]
+        this.distance = getDistance({ x: x0, y: y0 }, { x: x1, y: y1 });
+        this.speed = this.distance / 110;
+        console.log(this.speed);
+        console.log(this.distance);
 
-        var x0 = this.bottleBase.startX[1],
-            y0 = this.bottleBase.startY[0] - this.bottleBase.up,
-            x1 = this.bottleBase.startX[1] + this.bottleBase.width * 0.3,
-            y1 = this.bottleBase.startY[0] - this.bottleBase.height * 0.225
-        var distance = getDistance({ x: x0, y: y0 }, { x: x1, y: y1 });
-        this.speed = { a: distance / 38, b: (distance / 38) * 1.4 }
     }
     reDrawWater(id) {
         var containerBottle = this.containerPlaying.getChildByName('container_bottle_' + id)
@@ -426,7 +446,7 @@ export default class GameController {
                         if (this.listBottles[index].runWave4) this.runWave4Right(container, index)
                     }
                 },
-                duration: 0.4, ease: "none"
+                duration: 0.35, ease: "none"
             })
         }
     }
@@ -447,7 +467,7 @@ export default class GameController {
                         if (this.listBottles[index].runWave4) this.runWave4Left(container, index)
                     }
                 },
-                duration: 0.4, ease: "none"
+                duration: 0.35, ease: "none"
             })
 
 
@@ -602,6 +622,7 @@ export default class GameController {
         var containerBottle0 = this.containerPlaying.getChildByName('container_bottle_' + oldChoose.index)
         var containerBottleMask0 = containerBottle0.getChildByName('container_bottle_mask_' + oldChoose.index)
         var containerColor0 = containerBottle0.getChildByName('container_color_' + oldChoose.index)
+        var colWater0 = containerBottle0.getChildByName('colWater_' + oldChoose.index)
         var wave4 = containerBottle0.getChildByName('wave4_' + oldChoose.index)
         var wave0 = containerBottle0.getChildByName('wave_' + oldChoose.index)
 
@@ -610,21 +631,21 @@ export default class GameController {
         var colWater1 = containerBottle1.getChildByName('colWater_' + newChoose.index)
         var wave = containerBottle1.getChildByName('wave_' + newChoose.index)
 
+        // var isActive = this.bottleIsActive(this.listBottles)
+        // this.listBottles[indexChoose].status = false;
+        // var containerBottle = this.containerPlaying.getChildByName('container_bottle_' + indexChoose)
+        // containerBottle.zIndex = 2 + isActive
+
         var amount_water_poured = oldChoose.num >= newChoose.num ? newChoose.num : oldChoose.num
-
         var degrees = this.getAngle(listColorWater0.lastIndexOf(0) + 1, listColorWater0.lastIndexOf(0) + amount_water_poured)
-
-
 
         this.listBottles[newChoose.index].num += 1
         this.listBottles[newChoose.index].new.push({ color: oldChoose.color, num: amount_water_poured, progress: 0, id: oldChoose.index, listColor: listColorWater1 })
 
-
         this.listBottles[oldChoose.index].runWave4 = true
         this.updateColorWave4(wave4, oldChoose.color)
         var radians = null;
-
-        var distance = getDistance({ x: containerBottle0.x, y: containerBottle0.y }, azimuth.lead_Point);
+        var distance = getDistance({ x: containerBottle0.x, y: containerBottle0.y + this.bottleBase.up }, { x: containerBottle1.x, y: containerBottle1.y });
         //#
         if (azimuth.change_pivot) {
             var widthBottleMask0 = containerBottleMask0.getBounds().width
@@ -635,50 +656,46 @@ export default class GameController {
             containerBottleMask0.x = widthBottleMask0
 
             containerColor0.pivot.x = containerColor0.getBounds().width
-            containerColor0.x = containerBottleMask0.x
+            containerColor0.x = containerBottleMask0.x - this.bottleBase.width * 0.11
             radians = { start: degrees_to_radians(degrees.start), end: degrees_to_radians(degrees.end) }
             this.runWave4Right(wave4, oldChoose.index)
-
-            if (distance < this.bottleBase.width * 1.5) {
-                distance += this.bottleBase.width * 1.3
-            } else distance += this.bottleBase.width
+            // if (distance < this.bottleBase.width * 1.5) {
+            //     distance += this.bottleBase.width * 1.3
+            // } else distance += this.bottleBase.width
         } else {
             radians = { start: -degrees_to_radians(degrees.start), end: -degrees_to_radians(degrees.end) }
             this.runWave4Left(wave4, oldChoose.index)
-            if (distance < this.bottleBase.width * 1.1) {
-                distance += this.bottleBase.width * 1.6
-            }
+            // if (distance < this.bottleBase.width * 1.1) {
+                // distance += this.bottleBase.width * 1.6
+            // }
         }
-        var timeMove = (distance / this.speed.a) / 1000
-        var timeMove1 = (distance / this.speed.b) / 1000
-        var timeRot = 0.7 * amount_water_poured
 
-        // var timeWait = timeMove + timeRot
+        console.log(distance);
+        var timeMove = (distance / this.speed) / 1000 < TIMEMOVEMIN ? TIMEMOVEMIN : (distance / this.speed) / 1000
+        var timeRot = 0.7 * amount_water_poured
+        // var timeMove1 = timeMove * 0.9 < TIMEMOVEMIN ? TIMEMOVEMIN : timeMove * 0.9
+        var timeMove1 = timeMove == TIMEMOVEMIN ? timeMove * 1.2 : timeMove * 1.4
+        console.log({ đi: timeMove, về: timeMove1, tăng: timeMove == TIMEMOVEMIN ? 1.2 : 1.4 });
+        // console.log({ đi: timeMove, đổ: timeRot, về: timeMove1 });
+        // timeMove += 5
+        // timeMove1 += 5
+        // timeRot += 5
+
         gsap.timeline()
             .to(containerBottle0, {
                 x: azimuth.lead_Point.x,
                 y: azimuth.lead_Point.y,
-                onComplete: () => { },
-                duration: timeMove, ease: "none"
+                // onComplete: () => { },
+                duration: timeMove,
+                ease: "none"
             })
             .to(containerBottle0, {
                 x: azimuth.change_pivot ? this.bottleBase.startX[oldChoose.index] + widthBottleMask0 : this.bottleBase.startX[oldChoose.index], //#
                 y: oldChoose.index >= this.bottleBase.indexRow.numR1 ? this.bottleBase.startY[1] : this.bottleBase.startY[0],
-                duration: timeMove1, ease: "none"
+                duration: timeMove1,
+                ease: "power2.out"
             }, "+=" + timeRot)
-            .eventCallback("onComplete", () => {
-                //#
-                if (azimuth.change_pivot) {
-                    containerBottle0.pivot.x = 0
-                    containerBottle0.x = this.bottleBase.startX[oldChoose.index]
-                    containerBottleMask0.pivot.x = 0
-                    containerBottleMask0.x = 0
-                    containerColor0.pivot.x = 0
-                    containerColor0.x = containerBottleMask0.x
-                }
-                this.listBottles[oldChoose.index].status = true;
-            });
-
+            // .eventCallback("onComplete", () => { });
         gsap.timeline()
             //Nghiêng bình lần 1
             .to(containerBottleMask0, {
@@ -687,14 +704,16 @@ export default class GameController {
                 onUpdate: () => { this.tilt1(containerBottleMask0, containerColor0, radians, listColorWater0, wave4) },
                 onComplete: () => {
                     this.updateColorWave(wave, oldChoose.color)
-                    if (this.listBottles[newChoose.index].num == 1) {
-                        if (!this.listBottles[newChoose.index].runWave) {
-                            wave.alpha = 1
-                            this.listBottles[newChoose.index].runWave = true
-                            this.runWave(wave, newChoose.index)
-                            this.listBottles[newChoose.index].instance = pourWater.play()
-                        }
+                    containerBottle1.zIndex = containerBottle0.zIndex + 2
+                    // if (this.listBottles[newChoose.index].num == 1) {
+                    if (!this.listBottles[newChoose.index].runWave) {
+                        wave.alpha = 1
+                        this.listBottles[newChoose.index].runWave = true
+                        this.runWave(wave, newChoose.index)
+                        this.listBottles[newChoose.index].instance = pourWater.play()
                     }
+                    // }
+                    this.showColWater(colWater0, oldChoose.color, azimuth.change_pivot, containerBottleMask0);
                 }
             })
             // nghiêng bình lần 2
@@ -702,13 +721,12 @@ export default class GameController {
                 rotation: radians.end,
                 duration: timeRot, ease: "none",
                 onUpdate: () => {
-                    this.showColWater(colWater1, oldChoose.color, azimuth.change_pivot);
-                    this.tilt2(containerBottleMask0, containerColor0, radians, amount_water_poured, listColorWater0)
+                    this.tilt2(containerBottleMask0, containerColor0, radians, amount_water_poured, listColorWater0, wave4)
                     var bottleRadians = containerBottleMask0.rotation - radians.start;
                     var progress = bottleRadians / (radians.end - radians.start)
                     for (let i = 0; i < this.listBottles[newChoose.index].new.length; i++) {
                         const element = this.listBottles[newChoose.index].new[i];
-                        if (element.id == oldChoose.index) element.progress = progress * amount_water_poured
+                        if (element.id == oldChoose.index) element.progress = progress * amount_water_poured;
                     }
                     const total_num = this.listBottles[newChoose.index].new.reduce((t, { num }) => t + num, 0)
                     const total_progress = (this.listBottles[newChoose.index].new.reduce((t, { progress }) => t + progress, 0)) / total_num
@@ -716,129 +734,144 @@ export default class GameController {
                     this.upWaterBottle(this.listBottles[newChoose.index].new[0].listColor, total_num, total_progress, containerColor1, oldChoose.color, wave)
                 },
                 onComplete: () => {
-                    this.hideColWater(colWater1);
+                    this.hideColWater(colWater0);
                     this.stopWave4(oldChoose.index, wave4);
                     this.listBottles[newChoose.index].num -= 1;
                     if (this.listBottles[newChoose.index].num == 0 && this.listBottles[newChoose.index].runWave) {
                         this.stopWave(newChoose.index, wave);
-                        this.listBottles[newChoose.index].instance.stop()
+                        this.listBottles[newChoose.index].instance.stop();
+                        this.listBottles[newChoose.index].new = [];
+                        containerBottle1.zIndex = 0;
                         if (bottleComplete) this.setFirework(containerBottle1.x + this.bottleBase.width / 2,
-                            containerBottle1.y + this.bottleBase.height * 1.35, iscomplete)
+                            containerBottle1.y + this.bottleBase.height * 1.35, iscomplete);
                         //  this.setConfetti(containerBottle1.x + this.bottleBase.width / 2,
                         // containerBottle1.y + this.bottleBase.height,
                         // this.app.screen.width * 0.25)
-
-                        console.log('---------- rot xong --------');
                     }
                 }
             })
             // xoay trả về 
             .to(containerBottleMask0, {
                 rotation: 0,
-                duration: timeMove1, ease: "none",
-                onUpdate: () => { this.tilt3(containerBottleMask0, containerColor0, radians, oldChoose, wave4) },
+                duration: timeMove1 + timeRot * 0.1, ease: "power2.out",
+                onUpdate: () => { this.tilt3(containerBottleMask0, containerColor0, radians, oldChoose) },
                 onComplete: () => {
-                    var map = this.data.map
-                    var indexWaterExist = map[oldChoose.index].lastIndexOf(0) + 1
-                    if (indexWaterExist < 3) {
-                        wave4.y = containerColor0.children[indexWaterExist].y - wave4.getBounds().height * 0.7 + this.bottleBase.empty
-                        wave0.y = containerColor0.children[indexWaterExist].y - wave0.getBounds().height * 0.8 + this.bottleBase.empty
-                    } else {
-                        wave4.y = containerColor0.children[3].y + containerColor0.children[3].getBounds().height - wave4.getBounds().height * 0.7 + this.bottleBase.empty
-                        wave0.y = containerColor0.children[3].y + containerColor0.children[3].getBounds().height - wave0.getBounds().height * 0.8 + this.bottleBase.empty
-                    }
-
-                    if (this.listBottles[newChoose.index].status) {
-                        this.listBottles[newChoose.index].new = []
-                    }
+                    // console.log(this.listBottles[newChoose.index].status);
+                    // if (this.listBottles[newChoose.index].status) {
+                    //     console.log(1111);
+                    //     this.listBottles[newChoose.index].new = []
+                    //     containerBottle1.zIndex = 0
+                    // }
                     containerBottle0.zIndex = 0
+                    if (azimuth.change_pivot) {
+                        containerBottle0.pivot.x = 0
+                        containerBottle0.x = this.bottleBase.startX[oldChoose.index]
+                        containerBottleMask0.pivot.x = 0
+                        containerBottleMask0.x = 0
+                        containerColor0.pivot.x = 0
+                        containerColor0.x = containerBottleMask0.x
+                    }
+                    this.reDrawWater(oldChoose.index)
+                    this.listBottles[oldChoose.index].status = true;
                 }
             })
-
-
     }
     tilt1(containerBottleMask0, containerColor, radians, listColorWater0, wave4) {
         var emptyWater = listColorWater0.lastIndexOf(0) + 1
-        var bottleRadians = containerBottleMask0.rotation;
-        var progress = bottleRadians / radians.start
-        var heightContainerColorDefaut = this.colorBase.height * 9
-        var heightContainer = Math.cos(Math.abs(bottleRadians)) * heightContainerColorDefaut
-
-        var heightContainerUse = heightContainer - emptyWater * this.colorBase.height * (1 - progress)
-
-        for (let i = 0; i < containerColor.children.length; i++) {
-            let indexColor = listColorWater0[i]
-            let color = getColor(indexColor)
-            let water = containerColor.children[i]
-            var heightwater = i < emptyWater ? this.colorBase.height * (1 - progress) : heightContainerUse / (9 - emptyWater)
-            if (i == 3) heightwater = this.colorBase.height * 6
-
-            water.clear();
-            water.beginFill(color);
-            water.drawRect(0, 0, this.colorBase.width, heightwater);
-            water.y = i == 0 ? 0 : containerColor.children[i - 1].y + containerColor.children[i - 1].getBounds().height
-            if (i == emptyWater) {
-                wave4.y = water.y + this.bottleBase.empty * (1 - progress) - wave4.getBounds().height * 0.7
-            }
-        }
-        containerColor.y = this.bottleBase.empty * (1 - progress)
-    }
-    tilt2(containerBottleMask0, containerColor, radians, amount_water_poured, listColorWater0) {
-        containerColor.y = 0
-        var emptyWater = listColorWater0.lastIndexOf(0) + 1
-        var bottleRadians = containerBottleMask0.rotation - radians.start;
-        var progress = bottleRadians / (radians.end - radians.start)
-        var heightContainerColorDefaut = Math.cos(Math.abs(radians.start)) * this.colorBase.height * 9
-        var heightColorDefaut = heightContainerColorDefaut / (9 - emptyWater)
+        var progress = containerBottleMask0.rotation / radians.start;
+        if (progress >= 1) progress = 1
         var heightContainer = Math.cos(Math.abs(containerBottleMask0.rotation)) * this.colorBase.height * 9
 
-        var heightContainerUse = heightContainer - amount_water_poured * heightColorDefaut * (1 - progress)
-        var newHeightWaterDefaut = heightContainerUse / (9 - emptyWater - amount_water_poured)
-        for (let i = 0; i < containerColor.children.length; i++) {
-            let indexColor = listColorWater0[i]
-            let color = getColor(indexColor)
-            let water = containerColor.children[i]
-            var heightwater = newHeightWaterDefaut
-            if (i < emptyWater + amount_water_poured) {
-                heightwater = i < emptyWater ? 0 : heightColorDefaut * (1 - progress)
-                if (i == 3) heightwater += heightColorDefaut
-            } else if (i == 3) heightwater = heightColorDefaut * 6
-            water.clear();
-            water.beginFill(color);
-            water.drawRect(0, 0, this.colorBase.width, heightwater);
-            water.y = i == 0 ? 0 : containerColor.children[i - 1].y + containerColor.children[i - 1].getBounds().height
-        }
-    }
-    tilt3(containerBottleMask0, containerColor, radians, oldChoose, wave4) {
-        var listColorWater0 = this.data.map[oldChoose.index].slice()
-        var bottleRadians = containerBottleMask0.rotation;
-        var heightContainer = Math.cos(Math.abs(bottleRadians)) * this.colorBase.height * 9
-        var newHeightWaterDefaut = heightContainer / 9
-        var progress = bottleRadians / (radians.end)
+        var emptyHeight = emptyWater * this.colorBase.height * (1 - progress)
+        var HEIGHT = (heightContainer - emptyHeight) / (9 - emptyWater)
 
-        var emptyWaterEnd = listColorWater0.lastIndexOf(0) + 1
-        for (let i = 0; i < containerColor.children.length; i++) {
-            let indexColor = listColorWater0[i]
-            let color = getColor(indexColor)
-            let water = containerColor.children[i]
-            var heightwater = newHeightWaterDefaut
-            if (i < emptyWaterEnd) {
-                heightwater = newHeightWaterDefaut * (1 - progress)
-                water.alpha = 0
-            } else if (i == 3) heightwater = newHeightWaterDefaut * 6
-            water.clear();
-            water.beginFill(color);
-            water.drawRect(0, 0, this.colorBase.width, heightwater);
-            water.y = i == 0 ? 0 : containerColor.children[i - 1].y + containerColor.children[i - 1].getBounds().height
-            if (i == emptyWaterEnd) wave4.y = water.y + this.bottleBase.empty * (1 - progress) - wave4.getBounds().height * 0.7
+        while (containerColor.children[0]) {
+            containerColor.removeChild(containerColor.children[0]);
         }
-        containerColor.y = this.bottleBase.empty * (1 - progress)
+        for (let i = 0; i < listColorWater0.length; i++) {
+            let indexColor = listColorWater0[i]
+            if (indexColor <= 0) continue;
+            var index = i - emptyWater
+            let color = getColor(indexColor)
+            let water = new PIXI.Graphics();
+            water.beginFill(color);
+            water.drawRect(0, 0, this.colorBase.width, i == 3 ? HEIGHT * 6 : HEIGHT);
+            water.y = emptyHeight + index * HEIGHT
+            containerColor.addChild(water)
+        }
+        wave4.y = containerColor.y - wave4.getBounds().height * 0.6 + emptyHeight
+
+        containerColor.y = this.bottleBase.empty * (1 - progress) - emptyWater * this.bottleBase.width * 0.05 * progress
+    }
+    tilt2(containerBottleMask0, containerColor, radians, amount_water_poured, listColorWater0, wave4) {
+        var emptyWater = listColorWater0.lastIndexOf(0) + 1
+        var progress = (containerBottleMask0.rotation - radians.start) / (radians.end - radians.start) //0->1
+
+        var oldColorHeight = Math.cos(Math.abs(radians.start)) * this.colorBase.height * 9 / (9 - emptyWater)
+        var heightContainer = Math.cos(Math.abs(containerBottleMask0.rotation)) * this.colorBase.height * 9
+
+        var colorGiam = amount_water_poured * oldColorHeight * (1 - progress)
+        if (colorGiam <= 0) colorGiam = 0
+        var HEIGHT = (heightContainer - colorGiam) / (9 - emptyWater - amount_water_poured)
+
+        while (containerColor.children[0]) {
+            containerColor.removeChild(containerColor.children[0]);
+        }
+
+        for (let i = 0; i < listColorWater0.length; i++) {
+            let indexColor = listColorWater0[i]
+            if (indexColor <= 0) continue;
+            var index = i - emptyWater
+            let color = getColor(indexColor)
+            let water = new PIXI.Graphics();
+            water.beginFill(color);
+            var height = index < amount_water_poured ? colorGiam / amount_water_poured : HEIGHT
+            water.drawRect(0, 0, this.colorBase.width, i == 3 ? height * 6 : height);
+            water.y = index == 0 ? 0 : containerColor.children[containerColor.children.length - 1].y + containerColor.children[containerColor.children.length - 1].height
+            containerColor.addChild(water)
+        }
+        wave4.y = containerColor.y - wave4.getBounds().height * 0.6
+    }
+    tilt3(containerBottleMask0, containerColor, radians, oldChoose) {
+        var listColorWater0 = this.data.map[oldChoose.index].slice()
+        var heightContainer = Math.cos(containerBottleMask0.rotation) * this.colorBase.height * 9
+        // var newHeightWaterDefaut = Math.cos(bottleRadians) * this.colorBase.height
+
+        var progress = 1 - (containerBottleMask0.rotation / (radians.end))
+        var emptyWaterEnd = listColorWater0.lastIndexOf(0) + 1
+
+        // var phanbu = change_pivot?  this.bottleBase.width * Math.sin(Math.abs( radians.end))*0.7: this.bottleBase.width * Math.sin(radians.end);
+        var phanbu = emptyWaterEnd == 3 ? this.bottleBase.width * Math.sin(Math.abs(radians.end)) * 0.8 : this.bottleBase.width * Math.sin(Math.abs(radians.end)) * 0.5
+        var phantrambu = progress <= 0.5 ? progress : (1 - progress)
+
+        var heightEmpty = emptyWaterEnd * this.colorBase.height * progress + phanbu * phantrambu
+        // var heightEmpty = emptyWaterEnd * this.colorBase.height * progress
+        var HEIGHT = (heightContainer - heightEmpty) / (9 - emptyWaterEnd)
+
+        while (containerColor.children[0]) {
+            containerColor.removeChild(containerColor.children[0]);
+        }
+        // let water = new PIXI.Graphics();
+        // water.beginFill(getColor(0));
+        // water.drawRect(0, 0, this.colorBase.width, heightContainer);
+        // containerColor.addChild(water)
+
+        for (let i = 0; i < listColorWater0.length; i++) {
+            let indexColor = listColorWater0[i]
+            if (indexColor <= 0) continue;
+            var index = i - emptyWaterEnd
+            let color = getColor(indexColor)
+            let water = new PIXI.Graphics();
+            water.beginFill(color);
+            water.drawRect(0, 0, this.colorBase.width, i == 3 ? HEIGHT * 6 : HEIGHT);
+            water.y = heightEmpty + index * HEIGHT
+            containerColor.addChild(water)
+        }
+        containerColor.y = this.bottleBase.empty * progress
     }
     upWaterBottle(listColor, total_num, total_progress, containerColor1, indexColor, wave) {
-
         var water_empty = listColor.lastIndexOf(0) + 1
-        var water_exist = 4 - water_empty
-        var emptyWaterEnd = 4 - total_num - water_exist
+        var emptyWaterEnd = water_empty - total_num
         var newArrColor = listColor.slice(water_empty)
         while (containerColor1.children[0]) {
             containerColor1.removeChild(containerColor1.children[0]);
@@ -865,17 +898,25 @@ export default class GameController {
         }
         wave.y = heightEmpty + this.bottleBase.empty - wave.getBounds().height * 0.8
     }
-    showColWater(colWater, indexColor, change_pivot) {
+
+    showColWater(colWater, indexColor, change_pivot, containerBottleMask0) {
         var color = getColor(indexColor)
         colWater.alpha = 1
         colWater.clear();
         colWater.beginFill(color);
-        colWater.drawRect(0, 0, this.bottleBase.width * 0.08, this.bottleBase.height * 1.2);
-        colWater.x = change_pivot ? this.bottleBase.width * 0.24 : this.bottleBase.width * 0.67
+        colWater.drawRect(0, 0, this.bottleBase.width * 0.07, this.bottleBase.height * 1.2);
+        if (change_pivot) {
+            colWater.x = containerBottleMask0.x - this.bottleBase.width * 0.1
+            colWater.y = containerBottleMask0.y - this.bottleBase.height * 0.01
+        } else {
+            colWater.x = containerBottleMask0.x + this.bottleBase.width * 0.03
+            colWater.y = containerBottleMask0.y - this.bottleBase.height * 0.01
+        }
     }
     hideColWater(colWater) {
         colWater.alpha = 0
     }
+
     getWaterEmpty(index) {
         var map = this.data.map
         var arrcolor = map[index]
@@ -951,7 +992,7 @@ export default class GameController {
         btn_retry.scale.set(scale_btn_setting, scale_btn_setting);
         btn_retry.position.set(this.screenSize.width * 0.1, (this.screenSize.height * 9.3 / 10) - btn_retry.height * 1.5);
 
-        const btn_back = new PIXI.Sprite(this.resources.setting.textures["Layer 87 copy1.png"]);
+        const btn_back = new PIXI.Sprite(this.resources.setting.textures["btn_back.png"]);
         btn_back.name = 'btn_back'
         btn_back.scale.set(scale_btn_setting, scale_btn_setting);
         btn_back.position.set(this.screenSize.width - this.screenSize.width * 0.1 - btn_back.width, btn_retry.y);
@@ -972,21 +1013,32 @@ export default class GameController {
         btn_ads.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
             var isActive = this.bottleIsActive(this.listBottles)
-            if(isActive == 0)this.addBottle()
-            
+            if (isActive == 0) {
+                if (this.adSupport) this.ads_facebook.showvideoAddbottle()
+                else this.addBottle();
+            }
+
         });
         btn_retry.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
             var isActive = this.bottleIsActive(this.listBottles)
-            if(isActive == 0)this.replayGame()
+            if (isActive == 0) {
+                if (this.adSupport) this.ads_facebook.showInterstitial('retry')
+                else this.replayGame()
+            }
         });
         btn_back.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
             var isActive = this.bottleIsActive(this.listBottles)
-            if(isActive == 0)this.previousStep()
+            if (isActive == 0 && this.listBottleB.length != 0 && this.back > 0) {
+                this.back -= 1
+                this.drawTextBack()
+                this.previousStep()
+            } else if (isActive == 0 && this.back <= 0 && this.plus && this.adSupport) this.ads_facebook.showvideoBack()
         });
 
         this.drawSetting()
+        this.testScrollbox()
         this.drawTextBack()
     }
     //setting
@@ -1062,6 +1114,7 @@ export default class GameController {
         btn_close.interactive = true;
         btn_device_vibrate.interactive = true;
         btn_device_sound.interactive = true;
+        logo.interactive = true
 
         btn_close.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
@@ -1092,6 +1145,13 @@ export default class GameController {
                 sound_off.alpha = 0
                 sound_on.alpha = 1
             }
+        });
+
+        logo.on('pointerdown', () => {
+            this.resources.button_Click.sound.play()
+            gsap.timeline()
+                .to(this.containerSettings, { y: - this.containerSettings.getBounds().height, duration: 0.2, ease: "back.in(2)" })
+            this.openSelectBottle()
         });
     }
     openSetting() {
@@ -1141,6 +1201,8 @@ export default class GameController {
             btn_setting.y + btn_setting.height - this.containerLevel.height * 1.5);
     }
     drawTextBack() {
+        var plusAds = this.containerButton.getChildByName('plusAds')
+        if (plusAds) this.containerButton.removeChild(plusAds)
         var temp = this.containerButton.getChildByName('textBack')
         if (temp) {
             this.containerButton.removeChild(temp);
@@ -1159,6 +1221,22 @@ export default class GameController {
             btn_back.y + btn_back.height - text_back.height * 1.5)
 
         this.containerButton.addChild(text_back)
+
+        if (this.back <= 0 && this.plus) {
+            var plusAds = new PIXI.Sprite(this.resources.setting.textures["plusAds.png"]);
+            plusAds.name = 'plusAds'
+            var scale_plus = btn_back.width * 0.4 / plusAds.width
+            plusAds.scale.set(scale_plus, scale_plus);
+            plusAds.position.set(
+                btn_back.x + btn_back.width * 0.7,
+                btn_back.y + btn_back.height * 0.6)
+            this.containerButton.addChild(plusAds)
+        } else if (!this.plus && this.back <= 0) {
+            var textBack = this.containerButton.getChildByName('textBack')
+            textBack.alpha = 0.5
+            btn_back.alpha = 0.5;
+            btn_back.interactive = false
+        }
     }
 
     //level
@@ -1191,50 +1269,42 @@ export default class GameController {
 
     //event
     replayGame() {
-        this.back = 5
         this.setDefautBack()
-        this.drawTextBack()
         this.removeChildContainerPlaying()
         this.data.bottle -= numBottleAdd
         numBottleAdd = 0
         this.clearDataLevel();
         this.data = converLevel(this.resources.map.data.ids)
 
-        this.setLCBottle(this.data.bottle)
-        this.setBottle()
-        this.drawTextLevel()
+        this.defaultInit()
+        this.back = 5
+        this.drawTextBack()
     }
 
     previousStep() {
-        if (this.listBottleB.length != 0 && this.back > 0) {
-            var map = this.data.map
-            this.back--
-            this.drawTextBack()
-            let oldChoose = this.listBottleA[this.listBottleA.length - 1];
-            let newChoose = this.listBottleB[this.listBottleB.length - 1];
+        var map = this.data.map
+        let oldChoose = this.listBottleA[this.listBottleA.length - 1];
+        let newChoose = this.listBottleB[this.listBottleB.length - 1];
 
-            let oldColorArr = map[oldChoose.index].slice()
-            let newColorArr = map[newChoose.index].slice()
+        let oldColorArr = map[oldChoose.index].slice()
+        let newColorArr = map[newChoose.index].slice()
 
-            var num = oldChoose.num >= newChoose.num ? newChoose.num : oldChoose.num
-            while (num > 0) {
-                num -= 1
-                newColorArr.splice(newColorArr.lastIndexOf(0) + 1, 1, 0);
-                oldColorArr.splice(oldColorArr.lastIndexOf(0), 1, oldChoose.color);
-            }
-
-            map.splice(oldChoose.index, 1, oldColorArr);
-            map.splice(newChoose.index, 1, newColorArr);
-            this.listBottleA.pop()
-            this.listBottleB.pop()
-            this.listBottle = [];
-            this.removeChildContainerPlaying()
-
-            this.setLCBottle(this.data.bottle)
-            this.setBottle()
-            this.drawTextLevel()
+        var num = oldChoose.num >= newChoose.num ? newChoose.num : oldChoose.num
+        while (num > 0) {
+            num -= 1
+            newColorArr.splice(newColorArr.lastIndexOf(0) + 1, 1, 0);
+            oldColorArr.splice(oldColorArr.lastIndexOf(0), 1, oldChoose.color);
         }
-        //  else if (this.back <= 0 && this.plus && this.adSupport) this.ads_facebook.showvideoBack()
+
+        map.splice(oldChoose.index, 1, oldColorArr);
+        map.splice(newChoose.index, 1, newColorArr);
+        this.listBottleA.pop()
+        this.listBottleB.pop()
+        this.listBottles = [];
+        this.removeChildContainerPlaying()
+
+
+        this.defaultInit()
     }
 
     addBottle() {
@@ -1242,13 +1312,11 @@ export default class GameController {
             this.data.map.push([0, 0, 0, 0]);
             numBottleAdd++
             this.data.bottle += 1
-            this.listBottle = [];
+            this.listBottles = [];
             this.removeChildContainerPlaying()
             // var preMap = this.map.slice()
 
-            this.setLCBottle(this.data.bottle)
-            this.setBottle()
-            this.drawTextLevel()
+            this.defaultInit()
 
             const btn_ads = this.containerButton.getChildByName("btn_ads")
             btn_ads.alpha = 0.5;
@@ -1265,7 +1333,7 @@ export default class GameController {
     }
     clearDataLevel() {
         // this.pixiRemoveAllChildren(this.confettiContainer)
-        this.listBottle = [];
+        this.listBottles = [];
         this.listBottleA = [];
         this.listBottleB = [];
         this.complete = true;
@@ -1312,7 +1380,11 @@ export default class GameController {
 
         btn_next.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
-            this.nextLevel()
+            if (this.adSupport) {
+                this.ads_facebook.showInterstitial()
+            }
+            else this.nextLevel()
+            // this.nextLevel()
         });
 
         setTimeout(() => {
@@ -1435,7 +1507,7 @@ export default class GameController {
     setFirework(x, y, iscomplete) {
         var playWin = false
         if (iscomplete && this.complete) {
-            this.complete = false; 
+            this.complete = false;
             this.containerPlaying.interactiveChildren = false;
             this.containerButton.interactiveChildren = false;
             playWin = true
@@ -1497,9 +1569,10 @@ export default class GameController {
             this.clearDataLevel();
             this.resources.map = loaderNextData.resources.map
             this.data = converLevel(loaderNextData.resources.map.data.ids)
-            this.setLCBottle(this.data.bottle)
-            this.setBottle()
-            this.drawTextLevel()
+
+            this.back = 5
+            this.drawTextBack()
+            this.defaultInit()
 
             this.getNextLevelData()
             this.sendDataFacebook()
@@ -1521,24 +1594,337 @@ export default class GameController {
     bottleIsActive(array) {
         return array.filter(item => item.status === false).length;
     }
+    drawTutorial1() {
+        var hand_tut = new PIXI.Sprite(this.resources.setting.textures["hand_tut.png"]);
+        hand_tut.name = 'hand_tut'
+        const scale_hand_tut = (this.screenSize.width / 8.5) / hand_tut.width
+        hand_tut.scale.set(scale_hand_tut, scale_hand_tut);
+        hand_tut.position.set(this.bottleBase.startX[0] + this.bottleBase.width / 10, this.bottleBase.startY[0] + this.bottleBase.height * 1.1);
+
+        this.app.stage.addChild(hand_tut)
+        var y = hand_tut.y
+        this.tutorialL1 = gsap.timeline().to(hand_tut, { y: y + this.bottleBase.height * 0.25, duration: 0.35, ease: "none", repeat: -1, yoyo: true })
+        this.addTextInput('Click left tube to pick up', this.screenSize.height * 0.75)
+    }
+    eventLevel_1(param) {
+        var hand_tut = this.app.stage.getChildByName("hand_tut");
+        var y = hand_tut.y
+        const indexChoose = param;
+        if (indexChoose == 0 && this.tutorialL1.getChildren().length == 1) {
+            this.containerPlaying.children[0].interactiveChildren = false
+            var choose = this.getWaterChoose(indexChoose);
+            this.listBottleA.push(choose);
+            this.upBottle(indexChoose);
+
+            this.tutorialL1.kill();
+            this.tutorialL1 = null;
+            this.tutorialL1 = gsap.timeline()
+                .to(hand_tut, { x: this.bottleBase.startX[1] + this.bottleBase.width / 10, duration: 0.25, ease: "none", id: "move" })
+                .to(hand_tut, { y: y + this.bottleBase.height * 0.25, duration: 0.35, ease: "none", repeat: -1, yoyo: true, id: "turn2" })
+
+        } else if (indexChoose == 1 && this.tutorialL1.getChildren().length == 2) {
+            var newColor = this.getWaterEmpty(indexChoose);
+            this.listBottleB.push(newColor);
+            this.moveBottle();
+
+            this.tutorialL1.kill();
+            this.tutorialL1 = null;
+            this.app.stage.removeChild(hand_tut)
+
+
+        }
+    }
+    drawTutorial2() {
+        for (let i = 0; i < 3; i++) {
+            const incorrect = new PIXI.Sprite(this.resources.setting.textures["cross_x.png"]);
+            incorrect.name = 'incorrect_' + i
+            const scale_incorrect = (this.screenSize.width / 15) / incorrect.width
+            incorrect.scale.set(scale_incorrect, scale_incorrect);
+            incorrect.position.set(this.bottleBase.startX[i] + (this.bottleBase.width - incorrect.width) / 2, this.bottleBase.startY[0] - this.bottleBase.height * 0.25);
+            incorrect.alpha = 0
+            this.listcheckl2.push(incorrect)
+            const correct = new PIXI.Sprite(this.resources.setting.textures["tick.png"]);
+            correct.name = 'correct_' + i
+            const scale_correct = (this.screenSize.width / 12) / correct.width
+            correct.scale.set(scale_correct, scale_correct);
+            correct.position.set(this.bottleBase.startX[i] + (this.bottleBase.width - correct.width) / 2, incorrect.y + incorrect.height - correct.height);
+            correct.alpha = 0
+            this.listcheckl2.push(correct)
+            this.app.stage.addChild(incorrect, correct)
+        }
+        this.addTextInput('Only put the ball on the other\nsame color ball', this.screenSize.height * 0.67)
+    }
+    eventLevel_2(param) {
+        const indexChoose = param
+
+        var map = this.data.map
+        this.notClick()
+
+        var num_water_bottle0 = this.data.map[0].length - (this.data.map[0].lastIndexOf(0) + 1)
+        if (indexChoose == 0) {
+            if (num_water_bottle0 == 2) {
+                this.listcheckl2[2].alpha = 1
+                this.listcheckl2[5].alpha = 1
+            } else {
+                this.listcheckl2[3].alpha = 1
+                this.listcheckl2[4].alpha = 1
+            }
+        } else if (indexChoose == 1) {
+            this.listcheckl2[1].alpha = 1
+            this.listcheckl2[4].alpha = 1
+        } else if (indexChoose == 2) {
+            if (num_water_bottle0 == 2) {
+                this.listcheckl2[1].alpha = 1
+                this.listcheckl2[2].alpha = 1
+            } else {
+                this.listcheckl2[0].alpha = 1
+                this.listcheckl2[2].alpha = 1
+            }
+        }
+        if (indexChoose != null) {
+            if (this.listBottleA.length == this.listBottleB.length) {
+                if (map[indexChoose].lastIndexOf(0) != 3) {
+                    if (this.listBottles[indexChoose].status == true) {
+                        var choose = this.getWaterChoose(indexChoose);
+                        this.listBottleA.push(choose);
+                        this.upBottle(indexChoose);
+                    };
+                };
+            } else {
+                var oldChoose = this.listBottleA[this.listBottleA.length - 1].index
+                var newColor = this.getWaterEmpty(indexChoose);
+                if (indexChoose != oldChoose && newColor.num > 0) {
+                    var oldColor = this.listBottleA[this.listBottleA.length - 1]
+                    if (newColor.color == oldColor.color || newColor.num == 4) {
+                        this.listBottleB.push(newColor);
+                        this.moveBottle();
+                        this.notClick()
+                    } else {
+                        this.downBottle(oldChoose);
+                        if (this.listBottles[indexChoose].status == true) {
+                            var choose = this.getWaterChoose(indexChoose);
+                            this.listBottleA.push(choose);
+                            this.upBottle(indexChoose);
+                        };
+                    }
+                } else if (indexChoose == oldChoose) {
+                    this.downBottle(indexChoose);
+                    this.notClick()
+                } else {
+                    this.downBottle(oldChoose);
+                    if (this.listBottles[indexChoose].status == true) {
+                        var choose = this.getWaterChoose(indexChoose);
+                        this.listBottleA.push(choose);
+                        this.upBottle(indexChoose);
+
+                    };
+                }
+            }
+        }
+
+    }
+    notClick() {
+        this.listcheckl2[0].alpha = 0
+        this.listcheckl2[1].alpha = 0
+        this.listcheckl2[2].alpha = 0
+        this.listcheckl2[3].alpha = 0
+        this.listcheckl2[4].alpha = 0
+        this.listcheckl2[5].alpha = 0
+    }
+
+    addTextInput(text, y) {
+        var text_level = this.app.stage.getChildByName("text_level");
+        if (text_level) this.app.stage.removeChild(text_level)
+        var fontSize = (this.screenSize.width * 2 / 3) / 12.5 + 'px';
+        const style = new PIXI.TextStyle({ align: "center", fontFamily: "GROBOLD", fontWeight: "lighter", fontSize: fontSize, trim: true, fill: "#baa1ab" });
+        var text1 = new PIXI.Text(text, style);
+        text1.name = 'text_level'
+        text1.position.set((this.screenSize.width - text1.width) * 0.5, y);
+        this.app.stage.addChild(text1)
+        text1.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+    }
+
+    defaultInit() {
+
+        var btn_ads = this.containerButton.getChildByName('btn_ads')
+        var btn_retry = this.containerButton.getChildByName('btn_retry')
+        var btn_back = this.containerButton.getChildByName('btn_back')
+        var textBack = this.containerButton.getChildByName('textBack')
+
+        this.setLCBottle(this.data.bottle)
+        this.setBottle()
+        this.drawTextLevel()
+
+        btn_ads.alpha = 1
+        btn_ads.interactive = true
+        btn_retry.alpha = 1
+        btn_retry.interactive = true
+        btn_back.alpha = 1
+        btn_back.interactive = true
+        textBack.alpha = 1
+
+
+        if (this.level < 10) {
+            btn_ads.alpha = 0.5
+            btn_ads.interactive = false
+            if (this.level <= 2) {
+                btn_retry.alpha = 0
+                btn_retry.interactive = false
+                btn_back.alpha = 0
+                btn_back.interactive = false
+                textBack.alpha = 0
+
+                var text_level = this.app.stage.getChildByName("text_level");
+                if (text_level) this.app.stage.removeChild(text_level)
+                if (this.level == 1) this.drawTutorial1()
+                else this.drawTutorial2()
+            } else if (this.level == 3) {
+                var text_level = this.app.stage.getChildByName("text_level");
+                if (text_level) this.app.stage.removeChild(text_level)
+            }
+
+        }
+    }
+    testScrollbox() {
+
+        var bg_setting = new PIXI.Sprite(this.resources.setting.textures["Bar_setting.png"]);
+        var scale_bg_setting = (this.screenSize.width * 0.8) / bg_setting.width
+        bg_setting.scale.set(scale_bg_setting, scale_bg_setting);
+        bg_setting.position.set(0, 0);
+
+
+        var btn_close = new PIXI.Sprite(this.resources.setting.textures["btn_close.png"]);
+        btn_close.scale.set(scale_bg_setting * 1.05, scale_bg_setting * 1.05);
+        btn_close.position.set(bg_setting.x + bg_setting.width - btn_close.width * 1.03, bg_setting.y + btn_close.height / 4);
+
+        var fontSize = bg_setting.getBounds().width / 12 + 'px';
+
+        const style = new PIXI.TextStyle({
+            align: "center",
+            dropShadowColor: "#2d1439",
+            fill: [
+                "#8299be",
+                "#78779b"
+            ],
+            fillGradientStops: [
+                0.4,
+                0.7
+            ],
+            fontFamily: "GROBOLD",
+            fontWeight: "lighter",
+            fontSize: fontSize,
+            trim: true,
+            lineJoin: "round",
+            stroke: "#423e8c",
+            strokeThickness: 6
+        });
+        var text1 = new PIXI.Text("Select Bottle", style);
+        text1.name = 'text_level'
+        text1.position.set((bg_setting.getBounds().width - text1.width) * 0.5, bg_setting.getBounds().height * 0.08);
+        text1.texture.baseTexture.scaleMode = PIXI.SCALE_MODES.NEAREST;
+
+
+        var WIDTH = bg_setting.getBounds().width * 0.7
+        var HEIGHT = bg_setting.getBounds().height * 0.65
+        var heightBottle = HEIGHT * 0.7
+
+        var temp_container = new Container();
+        var bottle = new PIXI.Sprite(this.resources.bottles.textures[this.template_bottle_use]);
+        // temp_container.addChild(bottle)
+
+        for (let i = 0; i < 8; i++) {
+            var a = i + 1
+            var name = "bottle_" + a + ".png"
+            var bottleNew = new PIXI.Sprite(this.resources.bottles.textures[name]);
+            var scaleBottle = heightBottle / bottleNew.getBounds().height
+            bottleNew.scale.set(scaleBottle, scaleBottle);
+            var hang = (i - i % 2) / 2
+            var y = bottleNew.getBounds().height * 0.2
+            if (i % 2 == 0) {
+                bottleNew.y = y + hang * bottleNew.getBounds().height * 1.1
+                bottleNew.x = WIDTH * 0.6
+                temp_container.addChild(bottleNew)
+            } else {
+                bottleNew.y = y + hang * bottleNew.getBounds().height * 1.1
+                bottleNew.anchor.set(1, 0);
+                bottleNew.x = WIDTH * 0.4
+                temp_container.addChild(bottleNew)
+            }
+            bottleNew.interactive = true
+            bottleNew.on('pointerdown', () => { this.clickSelectBottle(i + 1) });
+
+        }
+
+        var trong = new PIXI.Graphics();
+        trong.drawRect(0, 0, WIDTH * 0.9, HEIGHT * 0.15);
+        trong.y = temp_container.children[temp_container.children.length - 1].y + heightBottle * 1.2
+        trong.alpha = 0
+        temp_container.addChild(trong)
+
+        this.select_bottle_container.addChild(bg_setting, text1, btn_close)
+        const scrollbox = new Scrollbox({ boxWidth: WIDTH, boxHeight: HEIGHT, scrollbarSize: 0 })
+        scrollbox.content.addChild(temp_container)
+        scrollbox.update()
+        scrollbox.x = (this.select_bottle_container.getBounds().width - WIDTH) * 0.5
+        scrollbox.y = bg_setting.getBounds().height * 0.2
+        scrollbox.overflowX = 'hidden'
+        // scrollbox.dragScroll= true
+        scrollbox.scrollbarSize = 0
+        this.select_bottle_container.addChild(scrollbox)
+        this.select_bottle_container.y = - this.select_bottle_container.getBounds().height
+        this.select_bottle_container.x = (this.screenSize.width - this.select_bottle_container.getBounds().width) * 0.5
+
+        btn_close.interactive = true
+
+        btn_close.on('pointerdown', () => {
+            this.closeSelectBottle();
+        });
+    }
+    clickSelectBottle(id) {
+        this.idBottle = id
+        this.closeSelectBottle();
+        this.template_bottle_use = "bottle_" + this.idBottle + ".png";
+        this.template_bottle_fill = "bottle_fill_" + this.idBottle + ".png"
+        this.listBottles = [];
+        this.removeChildContainerPlaying()
+        // var preMap = this.map.slice()
+
+        this.defaultInit()
+
+    }
+    openSelectBottle() {
+        this.resources.button_Click.sound.play()
+        gsap.timeline()
+            .to(this.select_bottle_container, { y: this.select_bottle_container.getBounds().height / 3, duration: 0.55, ease: "back.out(2.5)" })
+    }
+    closeSelectBottle() {
+        this.resources.button_Click.sound.play()
+        this.diaphragm.alpha = 0
+        gsap.timeline()
+            .to(this.select_bottle_container, { y: - this.select_bottle_container.getBounds().height, duration: 0.5, ease: "back.in(2)" })
+        this.containerPlaying.interactiveChildren = true;
+        this.containerButton.interactiveChildren = true;
+    }
+
 }
 
 function getColor(param) {
     switch (param) {
         case 0: return "0xffffff"
-        case 1: return "0x88aaff"
-        case 2: return "0x3f4482"
-        case 3: return "0x145def"
-        case 4: return "0xf27914"
-        case 5: return "0xf4c916"
-        case 6: return "0x6c7490"
-        case 7: return "0xbc245e"
-        case 8: return "0xbf3cbf"
-        case 9: return "0xff94d1"
-        case 10: return "0x008160"
-        case 11: return "0x809917"
+        case 1: return "0x145DEF"
+        case 2: return "0xBC245E"
+        case 3: return "0x3F4482"
+        case 4: return "0xF27914"
+        case 5: return "0xF4C916"
+        case 6: return "0x008160"
+        case 7: return "0x809917"
+        case 8: return "0xBF3CBF"
+        case 9: return "0xFF94D1"
+        case 10: return "0x6C7490"
+        case 11: return "0x88AAFF"
         case 12: return "0xB3D666"
     }
+
 }
 function converLevel(maplevel) {
     var map = maplevel.slice()

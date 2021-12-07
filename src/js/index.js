@@ -3,7 +3,6 @@ import * as PIXI from "pixi.js";
 import Manager from './Manager.js'
 import LoadAssets from "./LoadAssets.js";
 import GameController from "./GameController"
-import Ads from './facebook_ads'
 
 
 
@@ -19,9 +18,9 @@ class Main {
         FBInstant.initializeAsync()
             .then(() => {
                 // FBInstant.player
-                //   .setDataAsync({ level: 1 })
+                //   .setDataAsync({ level: 5 })
                 //   .then(function () {
-                //     console.log('data is set: ', { level: 1 });
+                //     console.log('data is set: ', { level: 5 });
                 //   });
                 FBInstant.player
                     .getDataAsync(['level'])
@@ -32,11 +31,9 @@ class Main {
                         }
                         else console.log(stats);
                         console.log(stats);
-                        this.level = 1
                         this.init()
                     })
-            }
-            );
+            });
     }
     init() {
         this.manager.initialize()
@@ -55,7 +52,6 @@ class Main {
                     this.startGame()
                     clearInterval(resourcesComplete);
                 }
-                temPro = 95
             } else {
                 if (temPro + 1 <= progress) {
                     temPro++
@@ -69,6 +65,8 @@ class Main {
         FBInstant.startGameAsync()
         .then(() => {
           this.supportedAPIs = FBInstant.getSupportedAPIs();
+        //   console.log(this.supportedAPIs);
+        //   console.log( this.supportedAPIs.includes('loadBannerAdAsync'));
           // console.log(this.supportedAPIs);
           if (this.supportedAPIs.includes('getInterstitialAdAsync') && this.supportedAPIs.includes('getRewardedVideoAsync')) {
             // this.ads_facebook = new Ads(this)
@@ -81,7 +79,7 @@ class Main {
           var app = this.manager.getApp()
           var resources = this.loadAssets.getResources()
           var screenSize = this.manager.getBounds()
-          this.gameController = new GameController(app, resources, screenSize, this.level)
+          this.gameController = new GameController(app, resources, screenSize, this.level, this.adSupport)
           this.gameController.start()
         })
      

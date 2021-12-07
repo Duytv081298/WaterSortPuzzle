@@ -1,7 +1,10 @@
 
 import { Application } from "@pixi/app";
+
+import { WebfontLoaderPlugin } from "pixi-webfont-loader";
 export default class Manager {
     constructor(main) {
+        PIXI.Loader.registerPlugin(WebfontLoaderPlugin);
         this.main = main
         this.app = null;
         this.width = Math.max(document.documentElement.clientWidth, window.innerWidth || 0);

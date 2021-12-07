@@ -7,8 +7,8 @@ var nextLevelVideo = null;
 var videoAddbottle = null;
 var videoBack = null;
 export default class Ads {
-    constructor(main) {
-        this.main = main
+    constructor(gameController) {
+        this.gameController = gameController
         this.addBottle = false;
         this.addBack = false;
         this.loadInterstitialAdAsync();
@@ -30,24 +30,25 @@ export default class Ads {
         });
     }
 
+    //sử dụng
     showInterstitial(param) {
         nextLevelVideo.showAsync()
             .then(() => {
                 console.log('Interstitial ad finished successfully');
-                if (param == 'retry') this.main.retryInMain()
-                else this.main.nextLevel()
+                if (param == 'retry') this.gameController.replayGame()
+                else this.gameController.nextLevel()
                 this.loadInterstitialAdAsync()
             }).catch((e) => {
                 console.error(e);
                 console.error(e.message);
-                if (e.code == 'RATE_LIMITED') {
-                    if (param == 'retry') this.main.retryInMain()
-                    else this.main.nextLevel()
-                    this.loadInterstitialAdAsync()
-                }
+                // if (e.code == 'RATE_LIMITED') {  }
+                if (param == 'retry') this.gameController.replayGame()
+                else this.gameController.nextLevel()
+                this.loadInterstitialAdAsync()
+
             });
     }
-    // load ads banner
+    // load ads banner //sử dụng
     loadBannerAdAsync() {
         FBInstant.loadBannerAdAsync(
             REWARDED_BANNER_ID,
@@ -59,7 +60,7 @@ export default class Ads {
     }
 
 
-
+    //sử dụng
     loadAdAddBottle() {
         var type = 'addBottle'
         FBInstant.getRewardedVideoAsync(REWARDED_PLACEMENT_ID)
@@ -84,7 +85,7 @@ export default class Ads {
                 .then(() => {
                     console.log('Rewarded video watched successfully');
                     this.addBottle = false
-                    this.main.addBottle();
+                    this.gameController.addBottle();
                     this.loadAdAddBottle()
                 })
                 .catch((e) => {
@@ -94,7 +95,6 @@ export default class Ads {
                 });
         }
     }
-
     loadAdBack() {
         var type = 'back'
         FBInstant.getRewardedVideoAsync(REWARDED_PLACEMENT_ID)
@@ -115,11 +115,10 @@ export default class Ads {
             videoBack.showAsync()
                 .then(() => {
                     console.log('Rewarded video watched successfully');
-                    this.main.plus = false;
+                    this.gameController.plus = false;
                     this.addBack = false;
-                    this.main.back = 5
-                    this.main.removePlus();
-                    this.main.drawTextBack();
+                    this.gameController.back = 5
+                    this.gameController.drawTextBack();
                     this.loadAdBack();
                 })
                 .catch((e) => {
@@ -129,8 +128,6 @@ export default class Ads {
                 });
         }
     }
-
-
     handleAdsNoFill(adInstance, attemptNumber, type) {
         if (attemptNumber > 3) { return; }
         else {

@@ -27,7 +27,9 @@
   "dependencies": {
     "@pixi/sound": "^4.0.6",
     "gsap": "^3.8.0",
+    "pixi-scrollbox": "^2.3.1",
     "pixi-spine": "^3.0.13",
+    "pixi-viewport": "^4.34.2",
     "pixi-webfont-loader": "^1.0.2",
     "pixi.js": "^6.2.0"
   }

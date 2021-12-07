@@ -15,7 +15,6 @@ module.exports = {
   mode: 'development',
   devtool: 'inline-source-map',
   watch: true,
-  devtool: "eval-source-map",
   optimization: {
     splitChunks: {
       cacheGroups: {
