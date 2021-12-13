@@ -18,9 +18,9 @@ class Main {
         FBInstant.initializeAsync()
             .then(() => {
                 // FBInstant.player
-                //   .setDataAsync({ level: 5 })
+                //   .setDataAsync({ level: 7 })
                 //   .then(function () {
-                //     console.log('data is set: ', { level: 5 });
+                //     console.log('data is set: ', { level: 7 });
                 //   });
                 FBInstant.player
                     .getDataAsync(['level'])
@@ -31,6 +31,7 @@ class Main {
                         }
                         else console.log(stats);
                         console.log(stats);
+                        // this.level= 6
                         this.init()
                     })
             });
@@ -43,15 +44,15 @@ class Main {
             const progress = this.loadAssets.getProgress()
             // console.log(progress);
             if (progress == 100) {
-                var plus = 0
-                if (progress - temPro >= 10) plus = Math.floor(Math.random() * 6);
-                else plus = Math.floor(Math.random() * (progress - temPro)) + 1;
-                temPro += plus
-                FBInstant.setLoadingProgress(temPro);
-                if (temPro == 100) {
+                // var plus = 0
+                // if (progress - temPro >= 10) plus = Math.floor(Math.random() * 6);
+                // else plus = Math.floor(Math.random() * (progress - temPro)) + 1;
+                // temPro += plus
+                // FBInstant.setLoadingProgress(temPro);
+                // if (temPro == 100) {
                     this.startGame()
                     clearInterval(resourcesComplete);
-                }
+                // }
             } else {
                 if (temPro + 1 <= progress) {
                     temPro++
@@ -75,6 +76,7 @@ class Main {
             console.error('Ads not supported in this session');
             this.adSupport = false
           }
+          this.adSupport = false 
           
           var app = this.manager.getApp()
           var resources = this.loadAssets.getResources()

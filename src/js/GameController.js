@@ -106,7 +106,7 @@ export default class GameController {
         this.defaultInit()
         this.getNextLevelData()
         if (this.adSupport) this.ads_facebook = new Ads(this)
-
+        // this.my_leaderboard()
     }
     setBackground() {
         const bg = PIXI.Sprite.from(this.resources.bg.texture);
@@ -301,7 +301,7 @@ export default class GameController {
             }
             containerColor.y = this.bottleBase.empty
             containerColor.x = bottle.x + this.bottleBase.width * 0.11
-            this.listBottles.push({ status: true, runWave4: false, runWave: false, num: 0, new: [] });
+            this.listBottles.push({ statusA: true, statusB: true, runWave4: false, runWave: false, num: 0, new: [] });
 
             var colWater = this.getColWater(3)
             colWater.name = 'colWater_' + i
@@ -324,7 +324,8 @@ export default class GameController {
             wave4.mask = bottle_fill
             containerColor.mask = bottle_fill
 
-            containerBottle.addChild(colWater, containerColor, wave, wave4, containerBottleMask)
+            this.containerPlaying.addChild(colWater)
+            containerBottle.addChild(containerColor, wave, wave4, containerBottleMask)
             containerBottle.x = this.bottleBase.startX[i]
             containerBottle.y = i >= this.bottleBase.indexRow.numR1 ? this.bottleBase.startY[1] : this.bottleBase.startY[0]
         }
@@ -333,9 +334,9 @@ export default class GameController {
             x1 = this.bottleBase.startX[1],
             y1 = this.bottleBase.startY[0]
         this.distance = getDistance({ x: x0, y: y0 }, { x: x1, y: y1 });
-        this.speed = this.distance / 110;
-        console.log(this.speed);
-        console.log(this.distance);
+        this.speed = this.distance / 125;
+        // console.log(this.speed);
+        // console.log(this.distance);
 
     }
     reDrawWater(id) {
@@ -408,8 +409,6 @@ export default class GameController {
     stopWave(index, wave) {
         this.listBottles[index].runWave = false
         wave.alpha = 0
-        this.reDrawWater(index)
-        this.listBottles[index].status = true;
     }
     getWave4(param) {
         var color = getColor(param)
@@ -495,10 +494,10 @@ export default class GameController {
     clickBottle(param) {
         var map = this.data.map
         const indexChoose = param
-        if (indexChoose != null) {
+        if (indexChoose != null && this.listBottles[indexChoose].statusA) {
             if (this.listBottleA.length == this.listBottleB.length) {
                 if (map[indexChoose].lastIndexOf(0) != 3) {
-                    if (this.listBottles[indexChoose].status == true) {
+                    if (this.listBottles[indexChoose].statusB) {
                         var choose = this.getWaterChoose(indexChoose);
                         this.listBottleA.push(choose);
                         this.upBottle(indexChoose);
@@ -515,7 +514,7 @@ export default class GameController {
 
                     } else {
                         this.downBottle(oldChoose);
-                        if (this.listBottles[indexChoose].status == true) {
+                        if (this.listBottles[indexChoose].statusB == true) {
                             var choose = this.getWaterChoose(indexChoose);
                             this.listBottleA.push(choose);
                             this.upBottle(indexChoose);
@@ -525,7 +524,7 @@ export default class GameController {
                     this.downBottle(indexChoose);
                 } else {
                     this.downBottle(oldChoose);
-                    if (this.listBottles[indexChoose].status == true) {
+                    if (this.listBottles[indexChoose].statusB == true) {
                         var choose = this.getWaterChoose(indexChoose);
                         this.listBottleA.push(choose);
                         this.upBottle(indexChoose);
@@ -536,18 +535,18 @@ export default class GameController {
     }
     upBottle(indexChoose) {
         var isActive = this.bottleIsActive(this.listBottles)
-        this.listBottles[indexChoose].status = false;
+        this.listBottles[indexChoose].statusA = false;
         var containerBottle = this.containerPlaying.getChildByName('container_bottle_' + indexChoose)
         containerBottle.zIndex = 2 + isActive
         var temp = this.bottleBase.indexRow.numR1
         var y = indexChoose < temp ? this.bottleBase.startY[0] - this.bottleBase.up : this.bottleBase.startY[1] - this.bottleBase.up;
         gsap.to(containerBottle, { y: y, duration: TIMEUP, ease: "none" })
             .eventCallback("onComplete", () => {
-                this.listBottles[indexChoose].status = true;
+                this.listBottles[indexChoose].statusA = true;
             });
     }
     downBottle(indexChoose) {
-        this.listBottles[indexChoose].status = false;
+        this.listBottles[indexChoose].statusA = false;
         this.listBottleA.pop();
         var containerBottle = this.containerPlaying.getChildByName('container_bottle_' + indexChoose)
         var temp = this.bottleBase.indexRow.numR1
@@ -555,7 +554,7 @@ export default class GameController {
 
         gsap.to(containerBottle, { y: y, duration: TIMEUP, ease: "none" })
             .eventCallback("onComplete", () => {
-                this.listBottles[indexChoose].status = true;
+                this.listBottles[indexChoose].statusA = true;
                 containerBottle.zIndex = 0
             });
     }
@@ -604,6 +603,7 @@ export default class GameController {
     }
 
     moveBottle() {
+
         var pourWater = this.resources.pourWater.sound
 
         let oldChoose = this.listBottleA[this.listBottleA.length - 1];
@@ -611,9 +611,8 @@ export default class GameController {
         var listColorWater0 = this.data.map[oldChoose.index].slice()
         var listColorWater1 = this.data.map[newChoose.index].slice()
         var azimuth = this.getAzimuth(oldChoose.index, newChoose.index) // điểm tiếp dẫn
-
-        this.listBottles[oldChoose.index].status = false;
-        this.listBottles[newChoose.index].status = false;
+        this.listBottles[oldChoose.index].statusA = false;
+        this.listBottles[newChoose.index].statusB = false;
 
         this.convertMap(oldChoose, newChoose)
         var iscomplete = this.checkWin()
@@ -622,20 +621,16 @@ export default class GameController {
         var containerBottle0 = this.containerPlaying.getChildByName('container_bottle_' + oldChoose.index)
         var containerBottleMask0 = containerBottle0.getChildByName('container_bottle_mask_' + oldChoose.index)
         var containerColor0 = containerBottle0.getChildByName('container_color_' + oldChoose.index)
-        var colWater0 = containerBottle0.getChildByName('colWater_' + oldChoose.index)
+        var colWater0 = this.containerPlaying.getChildByName('colWater_' + oldChoose.index)
         var wave4 = containerBottle0.getChildByName('wave4_' + oldChoose.index)
-        var wave0 = containerBottle0.getChildByName('wave_' + oldChoose.index)
 
         var containerBottle1 = this.containerPlaying.getChildByName('container_bottle_' + newChoose.index)
         var containerColor1 = containerBottle1.getChildByName('container_color_' + newChoose.index)
         var colWater1 = containerBottle1.getChildByName('colWater_' + newChoose.index)
         var wave = containerBottle1.getChildByName('wave_' + newChoose.index)
 
-        // var isActive = this.bottleIsActive(this.listBottles)
-        // this.listBottles[indexChoose].status = false;
-        // var containerBottle = this.containerPlaying.getChildByName('container_bottle_' + indexChoose)
-        // containerBottle.zIndex = 2 + isActive
-
+        // console.log(containerBottle0.getBounds().y + this.bottleBase.up);
+        // console.log(containerBottle0.getBounds().y + this.bottleBase.up == containerBottle1.getBounds().y);
         var amount_water_poured = oldChoose.num >= newChoose.num ? newChoose.num : oldChoose.num
         var degrees = this.getAngle(listColorWater0.lastIndexOf(0) + 1, listColorWater0.lastIndexOf(0) + amount_water_poured)
 
@@ -646,7 +641,7 @@ export default class GameController {
         this.updateColorWave4(wave4, oldChoose.color)
         var radians = null;
         var distance = getDistance({ x: containerBottle0.x, y: containerBottle0.y + this.bottleBase.up }, { x: containerBottle1.x, y: containerBottle1.y });
-        //#
+         
         if (azimuth.change_pivot) {
             var widthBottleMask0 = containerBottleMask0.getBounds().width
             containerBottle0.pivot.x = widthBottleMask0
@@ -659,24 +654,16 @@ export default class GameController {
             containerColor0.x = containerBottleMask0.x - this.bottleBase.width * 0.11
             radians = { start: degrees_to_radians(degrees.start), end: degrees_to_radians(degrees.end) }
             this.runWave4Right(wave4, oldChoose.index)
-            // if (distance < this.bottleBase.width * 1.5) {
-            //     distance += this.bottleBase.width * 1.3
-            // } else distance += this.bottleBase.width
         } else {
             radians = { start: -degrees_to_radians(degrees.start), end: -degrees_to_radians(degrees.end) }
             this.runWave4Left(wave4, oldChoose.index)
-            // if (distance < this.bottleBase.width * 1.1) {
-                // distance += this.bottleBase.width * 1.6
-            // }
         }
-
-        console.log(distance);
+console.log(listColorWater0.lastIndexOf(0)+1 + amount_water_poured);
         var timeMove = (distance / this.speed) / 1000 < TIMEMOVEMIN ? TIMEMOVEMIN : (distance / this.speed) / 1000
         var timeRot = 0.7 * amount_water_poured
-        // var timeMove1 = timeMove * 0.9 < TIMEMOVEMIN ? TIMEMOVEMIN : timeMove * 0.9
-        var timeMove1 = timeMove == TIMEMOVEMIN ? timeMove * 1.2 : timeMove * 1.4
-        console.log({ đi: timeMove, về: timeMove1, tăng: timeMove == TIMEMOVEMIN ? 1.2 : 1.4 });
-        // console.log({ đi: timeMove, đổ: timeRot, về: timeMove1 });
+        var timeMove1 = timeMove == TIMEMOVEMIN ? timeMove * 1.4 : timeMove * 1.6
+        var testTime = timeMove + timeRot * 0.1
+        console.log({ đi: timeMove, đổ: timeRot, xoayve: testTime });
         // timeMove += 5
         // timeMove1 += 5
         // timeRot += 5
@@ -685,17 +672,16 @@ export default class GameController {
             .to(containerBottle0, {
                 x: azimuth.lead_Point.x,
                 y: azimuth.lead_Point.y,
-                // onComplete: () => { },
                 duration: timeMove,
                 ease: "none"
             })
             .to(containerBottle0, {
                 x: azimuth.change_pivot ? this.bottleBase.startX[oldChoose.index] + widthBottleMask0 : this.bottleBase.startX[oldChoose.index], //#
                 y: oldChoose.index >= this.bottleBase.indexRow.numR1 ? this.bottleBase.startY[1] : this.bottleBase.startY[0],
-                duration: timeMove1,
+                duration: timeMove,
                 ease: "power2.out"
             }, "+=" + timeRot)
-            // .eventCallback("onComplete", () => { });
+
         gsap.timeline()
             //Nghiêng bình lần 1
             .to(containerBottleMask0, {
@@ -704,16 +690,12 @@ export default class GameController {
                 onUpdate: () => { this.tilt1(containerBottleMask0, containerColor0, radians, listColorWater0, wave4) },
                 onComplete: () => {
                     this.updateColorWave(wave, oldChoose.color)
-                    containerBottle1.zIndex = containerBottle0.zIndex + 2
-                    // if (this.listBottles[newChoose.index].num == 1) {
                     if (!this.listBottles[newChoose.index].runWave) {
                         wave.alpha = 1
                         this.listBottles[newChoose.index].runWave = true
                         this.runWave(wave, newChoose.index)
                         this.listBottles[newChoose.index].instance = pourWater.play()
                     }
-                    // }
-                    this.showColWater(colWater0, oldChoose.color, azimuth.change_pivot, containerBottleMask0);
                 }
             })
             // nghiêng bình lần 2
@@ -732,6 +714,8 @@ export default class GameController {
                     const total_progress = (this.listBottles[newChoose.index].new.reduce((t, { progress }) => t + progress, 0)) / total_num
 
                     this.upWaterBottle(this.listBottles[newChoose.index].new[0].listColor, total_num, total_progress, containerColor1, oldChoose.color, wave)
+                    this.showColWater(colWater0, azimuth.change_pivot, containerBottleMask0, oldChoose.color);
+
                 },
                 onComplete: () => {
                     this.hideColWater(colWater0);
@@ -739,29 +723,26 @@ export default class GameController {
                     this.listBottles[newChoose.index].num -= 1;
                     if (this.listBottles[newChoose.index].num == 0 && this.listBottles[newChoose.index].runWave) {
                         this.stopWave(newChoose.index, wave);
+
+                        this.reDrawWater(newChoose.index)
+                        this.listBottles[newChoose.index].statusB = true;
+
                         this.listBottles[newChoose.index].instance.stop();
                         this.listBottles[newChoose.index].new = [];
-                        containerBottle1.zIndex = 0;
                         if (bottleComplete) this.setFirework(containerBottle1.x + this.bottleBase.width / 2,
                             containerBottle1.y + this.bottleBase.height * 1.35, iscomplete);
                         //  this.setConfetti(containerBottle1.x + this.bottleBase.width / 2,
                         // containerBottle1.y + this.bottleBase.height,
-                        // this.app.screen.width * 0.25)
+                        // this.app.screen.width * 0.25);
                     }
                 }
             })
             // xoay trả về 
             .to(containerBottleMask0, {
                 rotation: 0,
-                duration: timeMove1 + timeRot * 0.1, ease: "power2.out",
+                duration: testTime, ease: "power2.out",
                 onUpdate: () => { this.tilt3(containerBottleMask0, containerColor0, radians, oldChoose) },
                 onComplete: () => {
-                    // console.log(this.listBottles[newChoose.index].status);
-                    // if (this.listBottles[newChoose.index].status) {
-                    //     console.log(1111);
-                    //     this.listBottles[newChoose.index].new = []
-                    //     containerBottle1.zIndex = 0
-                    // }
                     containerBottle0.zIndex = 0
                     if (azimuth.change_pivot) {
                         containerBottle0.pivot.x = 0
@@ -772,7 +753,7 @@ export default class GameController {
                         containerColor0.x = containerBottleMask0.x
                     }
                     this.reDrawWater(oldChoose.index)
-                    this.listBottles[oldChoose.index].status = true;
+                    this.listBottles[oldChoose.index].statusA = true;
                 }
             })
     }
@@ -898,19 +879,37 @@ export default class GameController {
         }
         wave.y = heightEmpty + this.bottleBase.empty - wave.getBounds().height * 0.8
     }
+    showColWater(colWater, change_pivot, containerBottleMask0, indexColor) {
+        var degrees = Math.abs(radians_to_degrees(containerBottleMask0.rotation))
+        var point = containerBottleMask0.getGlobalPosition()
 
-    showColWater(colWater, indexColor, change_pivot, containerBottleMask0) {
+        var plusTrue, plusFalse;
+        if (degrees < 63) {
+            plusTrue = { x: -this.bottleBase.width * 0.1, y: -this.bottleBase.width * 0.045 }
+            plusFalse = { x: this.bottleBase.width * 0.03, y: this.bottleBase.width * 0 }
+        } else if (degrees < 75) {
+            plusTrue = { x: -this.bottleBase.width * 0.09, y: -this.bottleBase.width * 0.05 }
+            plusFalse = { x: this.bottleBase.width * 0.03, y: -this.bottleBase.width * 0.03 }
+        } else if (degrees < 84) {
+            plusTrue = { x: -this.bottleBase.width * 0.095, y: -this.bottleBase.width * 0.05 }
+            plusFalse = { x: this.bottleBase.width * 0.015, y: -this.bottleBase.width * 0.03 }
+        } else if (degrees <= 90) {
+            plusTrue = { x: -this.bottleBase.width * 0.085, y: -this.bottleBase.width * 0.05 }
+            plusFalse = { x: this.bottleBase.width * 0.015, y: -this.bottleBase.width * 0.05 }
+        }
+
         var color = getColor(indexColor)
         colWater.alpha = 1
         colWater.clear();
         colWater.beginFill(color);
         colWater.drawRect(0, 0, this.bottleBase.width * 0.07, this.bottleBase.height * 1.2);
+
         if (change_pivot) {
-            colWater.x = containerBottleMask0.x - this.bottleBase.width * 0.1
-            colWater.y = containerBottleMask0.y - this.bottleBase.height * 0.01
+            colWater.x = point.x + plusTrue.x
+            colWater.y = point.y + plusTrue.y
         } else {
-            colWater.x = containerBottleMask0.x + this.bottleBase.width * 0.03
-            colWater.y = containerBottleMask0.y - this.bottleBase.height * 0.01
+            colWater.x = point.x + plusFalse.x
+            colWater.y = point.y + plusFalse.y
         }
     }
     hideColWater(colWater) {
@@ -985,7 +984,6 @@ export default class GameController {
         const scale_separator_line = this.screenSize.width / separator_line.width
         separator_line.scale.set(scale_separator_line, scale_separator_line);
         separator_line.position.set(0, btn_setting.height * 1.5);
-
 
         const btn_retry = new PIXI.Sprite(this.resources.setting.textures["btn_retry.png"]);
         btn_retry.name = 'btn_retry'
@@ -1131,6 +1129,7 @@ export default class GameController {
                 vibration_off.alpha = 0
                 vibration_on.alpha = 1
             }
+            this.testCreateShortcut()
         });
         btn_device_sound.on('pointerdown', () => {
             this.resources.button_Click.sound.play()
@@ -1145,6 +1144,7 @@ export default class GameController {
                 sound_off.alpha = 0
                 sound_on.alpha = 1
             }
+            this.testswitchNativeGame()
         });
 
         logo.on('pointerdown', () => {
@@ -1592,7 +1592,7 @@ export default class GameController {
             });
     }
     bottleIsActive(array) {
-        return array.filter(item => item.status === false).length;
+        return array.filter(item => item.statusA === false).length;
     }
     drawTutorial1() {
         var hand_tut = new PIXI.Sprite(this.resources.setting.textures["hand_tut.png"]);
@@ -1681,10 +1681,10 @@ export default class GameController {
                 this.listcheckl2[2].alpha = 1
             }
         }
-        if (indexChoose != null) {
+        if (indexChoose != null && this.listBottles[indexChoose].statusA) {
             if (this.listBottleA.length == this.listBottleB.length) {
                 if (map[indexChoose].lastIndexOf(0) != 3) {
-                    if (this.listBottles[indexChoose].status == true) {
+                    if (this.listBottles[indexChoose].statusB) {
                         var choose = this.getWaterChoose(indexChoose);
                         this.listBottleA.push(choose);
                         this.upBottle(indexChoose);
@@ -1701,7 +1701,7 @@ export default class GameController {
                         this.notClick()
                     } else {
                         this.downBottle(oldChoose);
-                        if (this.listBottles[indexChoose].status == true) {
+                        if (this.listBottles[indexChoose].statusB == true) {
                             var choose = this.getWaterChoose(indexChoose);
                             this.listBottleA.push(choose);
                             this.upBottle(indexChoose);
@@ -1712,7 +1712,7 @@ export default class GameController {
                     this.notClick()
                 } else {
                     this.downBottle(oldChoose);
-                    if (this.listBottles[indexChoose].status == true) {
+                    if (this.listBottles[indexChoose].statusB == true) {
                         var choose = this.getWaterChoose(indexChoose);
                         this.listBottleA.push(choose);
                         this.upBottle(indexChoose);
@@ -1905,6 +1905,47 @@ export default class GameController {
         this.containerPlaying.interactiveChildren = true;
         this.containerButton.interactiveChildren = true;
     }
+
+    testCreateShortcut() {
+        console.log('testCreateShortcut');
+        FBInstant.canCreateShortcutAsync()
+            .then(function (canCreateShortcut) {
+                if (canCreateShortcut) {
+                    FBInstant.createShortcutAsync()
+                        .then(function () {
+                            // Shortcut created
+                            console.log('Shortcut created');
+                        })
+                        .catch(function () {
+                            // Shortcut not created
+                            console.log('Shortcut not created');
+                        });
+                }
+            });
+    }
+    testswitchNativeGame() {
+        FBInstant.canSwitchNativeGameAsync()
+            .then(function (switchNativeGame) {
+                if (switchNativeGame) {
+                    FBInstant.switchNativeGameAsync()
+                        .then(function () {
+                            // Shortcut created
+                            console.log('switchNativeGame created');
+                        })
+                        .catch(function () {
+                            // Shortcut not created
+                            console.log('switchNativeGame not created');
+                        });
+                }
+            });
+    }
+    // my_leaderboard() {
+    //     // console.log(FBInstant.context.getID());
+    //     FBInstant.getLeaderboardAsync("global_leaderboard")
+    //         .then(function (leaderboard) {
+    //             console.log(leaderboard.getName()); // my_leaderboard
+    //         });
+    // }
 
 }
 
