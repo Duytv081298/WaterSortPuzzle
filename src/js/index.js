@@ -18,9 +18,9 @@ class Main {
         FBInstant.initializeAsync()
             .then(() => {
                 // FBInstant.player
-                //   .setDataAsync({ level: 7 })
+                //   .setDataAsync({ level: 6 })
                 //   .then(function () {
-                //     console.log('data is set: ', { level: 7 });
+                //     console.log('data is set: ', { level: 6 });
                 //   });
                 FBInstant.player
                     .getDataAsync(['level'])
